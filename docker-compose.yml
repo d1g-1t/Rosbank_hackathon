@@ -1,0 +1,63 @@
+volumes:
+  postgres_data:
+  static_volume:
+
+services:
+  db:
+    image: postgres:13.0-alpine
+    container_name: starsmap_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=starsmap
+      - POSTGRES_USER=starsmap_user
+      - POSTGRES_PASSWORD=starsmap_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starsmap_user -d starsmap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: starsmap/Dockerfile
+    container_name: starsmap_backend
+    volumes:
+      - static_volume:/app/static
+      - ./bd.csv:/app/bd.csv:ro
+    environment:
+      - USE_SQLITE=False
+      - POSTGRES_DB=starsmap
+      - POSTGRES_USER=starsmap_user
+      - POSTGRES_PASSWORD=starsmap_password
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DJANGO_SETTINGS_MODULE=starsmap.settings
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: starsmap_frontend
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: starsmap_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/staticfiles:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
