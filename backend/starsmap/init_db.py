@@ -189,6 +189,11 @@ def create_mock_data():
 
 if __name__ == '__main__':
     print("Initializing database...")
+    
+    print("Running migrations...")
+    call_command('migrate', '--noinput')
+    print("✓ Migrations complete")
+    
     create_superuser()
     create_mock_data()
     print("✓ Database initialization complete!")
